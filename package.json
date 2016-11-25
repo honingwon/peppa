@@ -1,0 +1,19 @@
+{
+  "name": "peppa",
+  "version": "0.0.1",
+  "bin": {
+    "peppa": "./bin/peppa"
+  },
+  "description": " for sync s-beta",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "mkdirp": "^0.5.1",
+    "xml2js": "^0.4.17",
+    "yargs": "^5.0.0"
+  },
+  "author": "honingwon",
+  "license": "ISC"
+}

@@ -1,0 +1,120 @@
+#!/usr/bin/env node
+var argv = require('yargs')
+.option('v', {
+  alias: 'ver',
+  describe: 'version checked',
+  type: 'string'
+})
+.usage('Usage: peppa [options]')
+.help('h')
+.alias('h', 'help')
+.epilog('copyright 2016')
+.argv;
+
+// console.log(argv);
+
+var fs = require('fs');
+var path = require('path');
+var parseString = require('xml2js').parseString;
+
+var config, infoXMLString, rootUrl,ver;
+var config = fs.readFileSync(getConfigPath());
+config = JSON.parse(config);
+
+checkCMD(['check', 'ci']);
+
+function check() {
+  doSVNMethod(['info', config.url, '--xml'], svnInfoCompleteHandler);
+}
+
+function ci() {
+  
+}
+
+function svnInfoCompleteHandler(data) {
+  infoXMLString = data;
+  // console.log(infoXMLString);
+  var lastestVer;
+  parseString(infoXMLString, function (err, result) {
+    var infoXML = result;
+    rootUrl = infoXML.info.entry[0].repository[0].root[0];
+    lastestVer = infoXML.info.entry[0].commit[0].$.revision;
+  });
+  ver = argv.ver;
+  if(typeof ver === 'string' && ver.length > 0) {
+    getLog();
+  } else {
+    ver = lastestVer;
+    getLog();
+  }
+}
+
+function getLog() {
+  doSVNMethod(['log', config.url, '--xml', '-v', '-r', ver], exportFiles);
+}
+
+function exportFiles(data) {
+  parseString(data, function (err, result) {
+    var list = result.log.logentry[0].paths[0].path;
+    var count = list.length;
+    list.forEach(function(item) {
+      if(['A','M'].indexOf(item.$.action) !== -1) {
+        exportFile(config.debug, item._);
+        exportFile(config.rc, item._);
+      }
+    });
+  });
+}
+
+function exportFile(toPath, fromPath, callback) {
+  var list = fromPath.split('/');
+  list.pop();
+  list.unshift(toPath);
+  var exportPath = list.join('/');
+  mkdir(exportPath, function () {
+    checkURLInfo(rootUrl + fromPath, function() {
+      doSVNMethod(['export', rootUrl + fromPath, '-r', ver, exportPath, '--force'], callback);
+    })
+  });
+}
+
+function checkURLInfo(url, callback) {
+  doSVNMethod(['info', url, '--xml'], function(data) {
+   parseString(data, function (err, result) {
+    result.info.entry[0].$.kind === 'file' && callback && callback();
+  });
+ });
+}
+
+function getConfigPath() {
+  return path.join(process.argv[1], '../..', 'config.json');
+}
+
+function checkCMD(cmds) {
+  if(argv._.length === 1 && cmds.indexOf(argv._[0]) !== -1) {
+    console.log('>>> start ' + argv._[0])
+    eval(argv._[0] + '()');
+  }
+}
+
+function doSVNMethod(params, complete) {
+  console.log(params.join(' '))
+  var data;
+  var spawn = require('child_process').spawn;
+  var child = spawn('svn', params);
+  child.stdout.on('data', function(chunk) {
+    data = chunk.toString();
+    if(typeof complete === 'function') {
+      complete(data)
+    }
+  });
+}
+
+function mkdir(path, fn) {
+  var mkdirp = require('mkdirp');
+  mkdirp(path, 0755, function(err){
+    if (err) throw err;
+    // console.log('   \033[36mcreate\033[0m : ' + path);
+    fn && fn();
+  });
+}
