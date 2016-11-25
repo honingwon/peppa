@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 var argv = require('yargs')
-.option('v', {
-  alias: 'ver',
+.option('r', {
+  alias: 'rev',
   describe: 'version checked',
   type: 'string'
 })
@@ -28,7 +28,7 @@ function check() {
 }
 
 function ci() {
-  
+
 }
 
 function svnInfoCompleteHandler(data) {
@@ -40,7 +40,7 @@ function svnInfoCompleteHandler(data) {
     rootUrl = infoXML.info.entry[0].repository[0].root[0];
     lastestVer = infoXML.info.entry[0].commit[0].$.revision;
   });
-  ver = argv.ver;
+  ver = argv.rev;
   if(typeof ver === 'string' && ver.length > 0) {
     getLog();
   } else {
@@ -97,16 +97,17 @@ function checkCMD(cmds) {
   }
 }
 
-function doSVNMethod(params, complete) {
+function doSVNMethod(params, complete, update) {
   console.log(params.join(' '))
-  var data;
+  var data = '';
   var spawn = require('child_process').spawn;
   var child = spawn('svn', params);
   child.stdout.on('data', function(chunk) {
-    data = chunk.toString();
-    if(typeof complete === 'function') {
-      complete(data)
-    }
+    data += chunk.toString();
+    update && update(chunk.toString());
+  });
+  child.on('exit', function() {
+    complete && complete(data);
   });
 }
 
